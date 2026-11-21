@@ -1,0 +1,85 @@
+name: phantom watch
+
+# Daily: re-check every invented name and publish the public-safe report.
+# Weekly: probe a small open model with Ollama on the runner's CPU.
+#
+# The watch database holds unclaimed names, so it is never committed.
+# It lives in the Actions cache, which stays alive as long as this runs daily.
+# Only the public report (unclaimed names withheld) and the blocklist feed are
+# committed.
+
+on:
+  schedule:
+    - cron: "17 2 * * *"   # daily watch
+    - cron: "41 3 * * 0"   # weekly probe (Sunday)
+  workflow_dispatch:
+    inputs:
+      probe:
+        description: "Also run a probe"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      PHANTOM_DB: phantom-data/phantom.json
+      MODEL: qwen2.5-coder:1.5b
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - run: go build -o phantom .
+
+      - name: Restore watch database
+        uses: actions/cache/restore@v4
+        with:
+          path: phantom-data
+          key: phantom-db-${{ github.run_id }}
+          restore-keys: phantom-db-
+
+      - name: Probe a local model
+        if: github.event.schedule == '41 3 * * 0' || inputs.probe
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          (ollama serve > /tmp/ollama.log 2>&1 &)
+          sleep 5
+          ollama pull "$MODEL"
+          ./phantom probe --model "$MODEL" --limit 30
+
+      - name: Watch
+        id: watch
+        run: |
+          set +e
+          ./phantom watch | tee watch.log
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Save watch database
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: phantom-data
+          key: phantom-db-${{ github.run_id }}
+
+      - name: Publish public report and feed
+        run: |
+          mkdir -p public
+          ./phantom report --public --out public/REPORT.md --feed public/feed.json
+          git config user.name "phantom-bot"
+          git config user.email "phantom-bot@users.noreply.github.com"
+          git add public
+          git diff --cached --quiet || git commit -m "watch: $(date -u +%F)" && git push
+
+      - name: Open an issue for newly claimed names
+        if: steps.watch.outputs.code == '3'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --title "Invented package names were registered ($(date -u +%F))" \
+            --body "$(printf 'phantom watch found invented names that someone has now registered:\n\n```\n%s\n```\n\nSee public/REPORT.md.' "$(grep '🚨' watch.log)")"

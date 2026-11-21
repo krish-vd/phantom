@@ -1,0 +1,25 @@
+name: phantom guard
+description: Fail the build if a dependency doesn't exist, or was registered after AI models started inventing its name.
+branding:
+  icon: shield
+  color: purple
+inputs:
+  files:
+    description: Dependency files to check (space-separated). Default finds requirements.txt, pyproject.toml, package.json.
+    default: ""
+  min-age:
+    description: Warn about packages published more recently than this (Go duration, e.g. 720h).
+    default: 720h
+  strict:
+    description: Fail on warnings too.
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version: "1.24"
+    - shell: bash
+      run: go install github.com/krish-vd/phantom@${{ github.action_ref || 'main' }}
+    - shell: bash
+      run: phantom guard --min-age "${{ inputs.min-age }}" --strict="${{ inputs.strict }}" ${{ inputs.files }}

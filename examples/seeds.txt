@@ -1,0 +1,5 @@
+# Names a public dataset (depscope, May 2026) listed as AI-hallucinated, now registered on PyPI.
+# Format: ecosystem/name [date the source saw it missing]
+pypi/fastapi-turbo 2026-05-04
+pypi/pandas-easy-pivot 2026-05-04
+pypi/torch-lightning-easy 2026-05-04
