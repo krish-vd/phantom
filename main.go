@@ -324,10 +324,16 @@ func guard(ctx context.Context, args []string) (int, error) {
 	db, _ := store.Open(*dbPath)
 	reg := registry.New()
 	fails, warns := 0, 0
+	w := 0
+	for _, d := range deps {
+		if l := len(d.eco) + 1 + len(d.name); l > w {
+			w = l
+		}
+	}
 	for _, d := range deps {
 		in, err := reg.Lookup(ctx, d.eco, d.name)
 		if err != nil {
-			fmt.Printf("  ?  %-40s lookup failed: %v\n", string(d.eco)+"/"+d.name, err)
+			fmt.Printf("  ?  %-*s  lookup failed: %v\n", w, string(d.eco)+"/"+d.name, err)
 			continue
 		}
 		key := string(d.eco) + "/" + d.name
@@ -337,18 +343,18 @@ func guard(ctx context.Context, args []string) (int, error) {
 			fails++
 			why := "does not exist on the registry"
 			if known != nil {
-				why += fmt.Sprintf(" (AI models have suggested it %d times)", known.Hits)
+				why += fmt.Sprintf(" (AI models have suggested it %s)", plural(known.Hits, "time"))
 			}
-			fmt.Printf("FAIL %-40s %s\n", key, why)
+			fmt.Printf("FAIL %-*s  %s\n", w, key, why)
 		case known != nil && known.Status == store.Claimed:
 			fails++
-			fmt.Printf("FAIL %-40s registered %s, after AI models were already inventing it\n", key, in.Created.Format("2006-01-02"))
+			fmt.Printf("FAIL %-*s  registered %s, after AI models were already inventing it\n", w, key, in.Created.Format("2006-01-02"))
 		case !in.Created.IsZero() && time.Since(in.Created) < *minAge:
 			warns++
-			fmt.Printf("WARN %-40s first published %d days ago\n", key, int(time.Since(in.Created).Hours()/24))
+			fmt.Printf("WARN %-*s  first published %d days ago\n", w, key, int(time.Since(in.Created).Hours()/24))
 		case known != nil && known.Status == store.Young:
 			warns++
-			fmt.Printf("WARN %-40s published shortly before models started suggesting it\n", key)
+			fmt.Printf("WARN %-*s  published shortly before models started suggesting it\n", w, key)
 		}
 	}
 	fmt.Printf("\nChecked %d dependencies from %s: %d failed, %d warnings.\n", len(deps), strings.Join(files, ", "), fails, warns)
@@ -544,13 +550,18 @@ func check(ctx context.Context, args []string) error {
 				fmt.Printf(" (%s)", in.Note)
 			}
 		} else {
-			fmt.Printf("%s: exists, first published %s, %d releases, latest %s", key, in.Created.Format("2006-01-02"), in.Releases, in.Latest)
+			fmt.Printf("%s: exists, first published %s, %s, latest %s", key, in.Created.Format("2006-01-02"), plural(in.Releases, "release"), in.Latest)
 			if in.Summary != "" {
 				fmt.Printf("\n    %q", in.Summary)
 			}
 		}
 		if n := db.Names[key]; n != nil {
-			fmt.Printf("\n    Phantom: %s; suggested %d times by %d model(s) since %s", n.Status, n.Hits, len(n.Models), n.FirstSeen.Format("2006-01-02"))
+			var src []string
+			for m := range n.Models {
+				src = append(src, m)
+			}
+			sort.Strings(src)
+			fmt.Printf("\n    Phantom: %s. First seen invented %s, source: %s", strings.ToUpper(string(n.Status)), n.FirstSeen.Format("2006-01-02"), strings.Join(src, ", "))
 		}
 		fmt.Println()
 	}
@@ -588,6 +599,13 @@ func reportCmd(args []string) error {
 		}
 	}
 	return nil
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return "1 " + word
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }
 
 func short(s string, n int) string {
