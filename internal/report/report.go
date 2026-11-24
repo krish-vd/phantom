@@ -34,7 +34,7 @@ func Markdown(db *store.DB, o Options) string {
 		b.WriteString("## Models\n\n")
 		b.WriteString("| Model | Responses | Install suggestions | Invented | Rate | Unique invented names |\n")
 		b.WriteString("|---|---:|---:|---:|---:|---:|\n")
-		for _, r := range aggregate(db.Runs) {
+		for _, r := range Aggregate(db.Runs) {
 			r.Invented = 0
 			for _, n := range db.Names {
 				if n.Models[r.Model] > 0 && n.WasMissing && n.InstallHits > 0 {
@@ -148,7 +148,8 @@ func JSONFeed(db *store.DB) ([]byte, error) {
 	return json.MarshalIndent(f, "", "  ")
 }
 
-func aggregate(runs []store.Run) []store.Run {
+// Aggregate sums runs per model, keeping the order models first appeared.
+func Aggregate(runs []store.Run) []store.Run {
 	by := map[string]*store.Run{}
 	var order []string
 	for _, r := range runs {

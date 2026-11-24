@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -94,4 +95,40 @@ func TestProbeEndToEnd(t *testing.T) {
 	if !strings.Contains(string(b), "| `fake` | 4 | 8 | 4 | 50.0% | 2 |") {
 		t.Errorf("model row missing:\n%s", b)
 	}
+
+	// dash: unclaimed names stay hidden unless asked for.
+	out := captureStdout(t, func() {
+		if err := dash([]string{"--db", db}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if strings.Contains(out, "phantom-test-retry-magic-zq9") {
+		t.Errorf("dash showed an unclaimed name without --show-unclaimed:\n%s", out)
+	}
+	if !strings.Contains(out, "3 unclaimed names hidden") {
+		t.Errorf("dash did not say unclaimed names were hidden:\n%s", out)
+	}
+	out = captureStdout(t, func() { dash([]string{"--db", db, "--show-unclaimed"}) })
+	if !strings.Contains(out, "phantom-test-retry-magic-zq9") {
+		t.Errorf("--show-unclaimed did not list unclaimed names:\n%s", out)
+	}
+}
+
+func captureStdout(t *testing.T, f func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stdout
+	os.Stdout = w
+	done := make(chan string)
+	go func() {
+		b, _ := io.ReadAll(r)
+		done <- string(b)
+	}()
+	f()
+	os.Stdout = old
+	w.Close()
+	return <-done
 }

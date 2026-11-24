@@ -11,11 +11,15 @@ Research has measured this in one-off snapshots, and scanners check your own pro
 In May 2026, a public dataset listed `fastapi-turbo`, `pandas-easy-pivot` and `torch-lightning-easy` among the package names AI models hallucinate most. On 21 November 2026, Phantom found all three on PyPI:
 
 ```
-$ phantom seed --source dataset:depscope --since 2026-05-04 seeds.txt
-claimed   pypi/fastapi-turbo          # first published 2026-07-28, one release
-claimed   pypi/pandas-easy-pivot      # first published 2026-10-22, one release
-claimed   pypi/torch-lightning-easy   # first published 2026-10-29, one release
+$ phantom seed --source dataset:depscope --since 2026-05-04 examples/seeds.txt
+claimed   pypi/fastapi-turbo
+claimed   pypi/pandas-easy-pivot
+claimed   pypi/torch-lightning-easy
+
+Watching 3 names from dataset:depscope. Run phantom watch on a schedule.
 ```
+
+`phantom check` shows each one was first published on 2026-07-28, 2026-10-22 and 2026-10-29 respectively, each with a single release, 0.1.0.
 
 Registering a name after it is listed doesn't make it malicious. Some of these will be genuine projects, or defensive registrations. But a name that models keep recommending, and that appeared only after a public list said it didn't exist, is exactly what should be reviewed before anyone installs it. A snapshot can't tell you that. A watch can.
 
@@ -28,6 +32,8 @@ go install github.com/krish-vd/phantom@latest
 ```
 
 A single static binary. No dependencies, no API key.
+
+In a terminal the output is in colour, with live progress and panels. Piped into a file or a CI log it is plain text, and `NO_COLOR=1` turns colour off everywhere.
 
 ## Use it
 
@@ -55,8 +61,8 @@ Works with Ollama, or any OpenAI-compatible server (LM Studio, llama.cpp, vLLM) 
 
 ```
 $ phantom guard requirements.txt
-FAIL pypi/pandas-easy-pivot          registered 2026-10-22, after AI models were already inventing it
-FAIL pypi/fastapi-retry-magic-zq9    does not exist on the registry
+FAIL pypi/pandas-easy-pivot        registered 2026-10-22, after AI models were already inventing it
+FAIL pypi/fastapi-retry-magic-zq9  does not exist on the registry
 
 Checked 3 dependencies from requirements.txt: 2 failed, 0 warnings.
 ```
@@ -68,6 +74,14 @@ In CI:
 ```yaml
 - uses: krish-vd/phantom@v0
 ```
+
+**See everything at once**
+
+```
+phantom dash
+```
+
+The watch list as one status bar, every claimed name with how long after it was first seen missing it got registered, and each probed model's hallucination rate. Unclaimed names stay hidden unless you pass `--show-unclaimed`, so the dashboard is safe to screenshot.
 
 **Report**
 
