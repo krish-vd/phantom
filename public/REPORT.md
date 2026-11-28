@@ -1,6 +1,6 @@
 # Phantom report
 
-Generated 27 Nov 2026 10:53 UTC. 0 package names tracked across 0 probe runs.
+Generated 28 Nov 2026 10:29 UTC. 0 package names tracked across 0 probe runs.
 
 ## 🚨 Claimed after models invented them
 
